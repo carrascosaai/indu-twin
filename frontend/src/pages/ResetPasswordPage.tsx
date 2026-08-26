@@ -41,7 +41,7 @@ export default function ResetPasswordPage() {
             "radial-gradient(600px circle at 20% 20%, rgba(59,130,246,0.15), transparent 60%), radial-gradient(500px circle at 80% 80%, rgba(59,130,246,0.1), transparent 60%)",
         }}
       />
-      <div className="relative w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl shadow-black/40">
+      <div className="relative w-full max-w-sm rounded-lg border border-slate-800 bg-slate-900 p-8 shadow-2xl shadow-black/40">
         <div className="mb-6 flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-sm shadow-blue-900/40">
             <Factory size={18} strokeWidth={2.25} />

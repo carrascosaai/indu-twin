@@ -39,7 +39,7 @@ export default function ReportsMenu({ polygonId }: { polygonId: number }) {
         <>
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
           <div
-            className="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-xl p-3.5"
+            className="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-lg p-3.5"
             style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow-float)" }}
           >
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">

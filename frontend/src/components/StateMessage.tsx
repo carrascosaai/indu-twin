@@ -19,7 +19,7 @@ export default function StateMessage({
 }: StateMessageProps) {
   return (
     <div
-      className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 dark:border-white/10 p-8 text-center"
+      className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 dark:border-white/10 p-8 text-center"
       style={{ backgroundColor: "var(--surface)" }}
     >
       <span className="text-2xl">{ICONS[variant]}</span>

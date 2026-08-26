@@ -21,7 +21,7 @@ export default function Modal({ title, onClose, children }: ModalProps) {
         onClick={onClose}
       />
       <div
-        className="relative w-full max-w-md rounded-2xl p-6"
+        className="relative w-full max-w-md rounded-lg p-6"
         style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow-float)" }}
       >
         <div className="mb-4 flex items-center justify-between">

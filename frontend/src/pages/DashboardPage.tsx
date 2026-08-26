@@ -104,7 +104,12 @@ export default function DashboardPage() {
       <header className="app-header px-4 py-4 sm:px-8 sm:py-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">{dashboard.polygon.name}</h1>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+              Polígono industrial
+            </p>
+            <h1 className="font-display text-xl font-semibold text-slate-900 dark:text-slate-50">
+              {dashboard.polygon.name}
+            </h1>
             <div className="flex items-center gap-2">
               <p className="text-sm text-slate-500 dark:text-slate-400">{dashboard.polygon.address}</p>
               <span className="text-slate-300 dark:text-slate-600">·</span>
@@ -243,51 +248,71 @@ export default function DashboardPage() {
         </div>
 
         <div className="card p-5">
-          <h2 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">Ranking de consumo por nave (24h)</h2>
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Ranking de consumo por nave</h2>
+            <span className="text-xs text-slate-400 dark:text-slate-500">Últimas 24h</span>
+          </div>
           {dashboard.ranking.length === 0 ? (
             <div className="flex items-center justify-center rounded-lg border border-dashed border-slate-200 dark:border-white/10 py-10 text-sm text-slate-400 dark:text-slate-500">
               Añade una nave para empezar a ver datos
             </div>
           ) : (
-          <ul className="divide-y divide-slate-100 dark:divide-white/5">
-            {dashboard.ranking.map((item, idx) => {
-              const max = dashboard.ranking[0]?.total_energy_kwh || 1;
-              const RANK_COLORS = ["#eab308", "#94a3b8", "#b45309"];
-              return (
-                <li
-                  key={item.building_id}
-                  className="-mx-2 flex cursor-pointer items-center gap-4 rounded-lg px-2 py-2.5 transition hover:bg-slate-50/80 dark:hover:bg-white/5"
-                  onClick={() => navigate(`/building/${item.building_id}`)}
-                >
-                  <span
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
-                    style={
-                      idx < 3
-                        ? { backgroundColor: `color-mix(in srgb, ${RANK_COLORS[idx]} 18%, var(--surface))`, color: RANK_COLORS[idx] }
-                        : { color: "var(--text-tertiary)" }
-                    }
-                  >
-                    {idx + 1}
-                  </span>
-                  <span className="w-44 shrink-0 truncate text-sm font-medium text-slate-700 dark:text-slate-300">
-                    {item.name}
-                  </span>
-                  <div className="h-1.5 flex-1 rounded-full bg-slate-100 dark:bg-white/10">
-                    <div
-                      className="h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
-                      style={{ width: `${Math.max(4, (item.total_energy_kwh / max) * 100)}%` }}
-                    />
-                  </div>
-                  <span className="w-20 shrink-0 text-right text-sm text-slate-500 dark:text-slate-400">
-                    {item.total_energy_kwh.toFixed(1)} kWh
-                  </span>
-                  <span className="w-28 shrink-0 text-right">
-                    <EfficiencyBadge score={item.efficiency_score} />
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-white/5 text-[11px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    <th className="w-8 py-2 font-medium">#</th>
+                    <th className="py-2 pr-4 font-medium">Nave</th>
+                    <th className="py-2 pr-4 font-medium">Consumo</th>
+                    <th className="py-2 pr-4 font-medium">&nbsp;</th>
+                    <th className="w-28 py-2 text-right font-medium">Eficiencia</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                  {dashboard.ranking.map((item, idx) => {
+                    const max = dashboard.ranking[0]?.total_energy_kwh || 1;
+                    const RANK_COLORS = ["#eab308", "#94a3b8", "#b45309"];
+                    return (
+                      <tr
+                        key={item.building_id}
+                        className="cursor-pointer transition hover:bg-slate-50/80 dark:hover:bg-white/5"
+                        onClick={() => navigate(`/building/${item.building_id}`)}
+                      >
+                        <td className="py-2.5">
+                          <span
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+                            style={
+                              idx < 3
+                                ? { backgroundColor: `color-mix(in srgb, ${RANK_COLORS[idx]} 18%, var(--surface))`, color: RANK_COLORS[idx] }
+                                : { color: "var(--text-tertiary)" }
+                            }
+                          >
+                            {idx + 1}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-4">
+                          <span className="font-medium text-slate-700 dark:text-slate-300">{item.name}</span>
+                        </td>
+                        <td className="py-2.5 pr-4 text-right tabular-nums text-slate-500 dark:text-slate-400">
+                          {item.total_energy_kwh.toFixed(1)} kWh
+                        </td>
+                        <td className="w-32 py-2.5 pr-4">
+                          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-white/10">
+                            <div
+                              className="h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
+                              style={{ width: `${Math.max(4, (item.total_energy_kwh / max) * 100)}%` }}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <EfficiencyBadge score={item.efficiency_score} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </main>

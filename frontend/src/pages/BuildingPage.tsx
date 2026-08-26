@@ -238,7 +238,12 @@ export default function BuildingPage() {
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">{building.name}</h1>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+              Nave industrial
+            </p>
+            <h1 className="font-display text-xl font-semibold text-slate-900 dark:text-slate-50">
+              {building.name}
+            </h1>
             <div className="flex items-center gap-2">
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 {building.code} · {building.building_type} · {building.area_m2.toLocaleString("es-ES")} m²
