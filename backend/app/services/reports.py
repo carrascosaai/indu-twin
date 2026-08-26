@@ -12,8 +12,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from openpyxl import Workbook
+from openpyxl.chart import BarChart, Reference
+from openpyxl.chart.label import DataLabelList
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from reportlab.graphics.charts.barcharts import VerticalBarChart
+from reportlab.graphics.shapes import Drawing, String
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -40,6 +44,13 @@ PERIOD_DELTAS = {
     "monthly": timedelta(days=30),
 }
 
+# Estimaciones para dar contexto de negocio al consumo bruto. Son valores de
+# referencia razonables para industria en España (precio medio de mercado
+# libre y factor de emision de la red peninsular), no datos de facturacion
+# real del cliente — el informe lo indica explicitamente.
+ENERGY_PRICE_EUR_PER_KWH = 0.18
+GRID_CO2_KG_PER_KWH = 0.21
+
 BRAND_BLUE = "1D4ED8"
 INK = "0F172A"
 SLATE = "64748B"
@@ -62,6 +73,7 @@ class BuildingReportRow:
     building_type: str
     area_m2: float
     energy_kwh: float
+    cost_eur: float
     efficiency_score: int
     alerts_critical: int
     alerts_warning: int
@@ -76,6 +88,12 @@ class AlertRow:
     message: str
     created_at: datetime
     status: str
+
+
+@dataclass
+class SeriesPoint:
+    label: str
+    value: float
 
 
 @dataclass
@@ -96,8 +114,12 @@ class ReportData:
     incidents_open: int
     incidents_in_progress: int
     incidents_resolved: int
+    estimated_cost_eur: float
+    estimated_co2_kg: float
+    executive_summary: str
     buildings: list[BuildingReportRow] = field(default_factory=list)
     top_alerts: list[AlertRow] = field(default_factory=list)
+    energy_series: list[SeriesPoint] = field(default_factory=list)
 
 
 def _sensor_ids(db: Session, building_ids: list[int], sensor_type: models.SensorType) -> list[int]:
@@ -237,6 +259,7 @@ def build_report_data(db: Session, polygon: models.Polygon, period: str) -> Repo
                 building_type=b.building_type,
                 area_m2=b.area_m2,
                 energy_kwh=round(energy_by_building[b.id], 2),
+                cost_eur=round(energy_by_building[b.id] * ENERGY_PRICE_EUR_PER_KWH, 2),
                 efficiency_score=scores[b.id],
                 alerts_critical=b_critical,
                 alerts_warning=b_warning,
@@ -258,6 +281,49 @@ def build_report_data(db: Session, polygon: models.Polygon, period: str) -> Repo
         for a in sorted(period_alerts, key=lambda a: a.created_at, reverse=True)[:20]
     ]
 
+    # Serie para el grafico: por hora en el informe diario (24 puntos), por
+    # dia en semanal/mensual (7 o ~30 puntos). SQLite-especifico, ver nota
+    # de HOUR_BUCKET en app/routers/dashboard.py.
+    if period == "daily":
+        bucket_expr = func.strftime("%Y-%m-%dT%H:00:00", models.SensorReading.timestamp)
+        label_fmt = "%H:00"
+    else:
+        bucket_expr = func.strftime("%Y-%m-%d", models.SensorReading.timestamp)
+        label_fmt = "%d/%m"
+    energy_series: list[SeriesPoint] = []
+    if all_energy_ids:
+        rows = db.execute(
+            select(bucket_expr.label("bucket"), func.sum(models.SensorReading.value))
+            .where(
+                models.SensorReading.sensor_id.in_(all_energy_ids),
+                models.SensorReading.timestamp >= since,
+                models.SensorReading.timestamp < until,
+            )
+            .group_by("bucket")
+            .order_by("bucket")
+        ).all()
+        for bucket, value in rows:
+            ts = (
+                datetime.fromisoformat(bucket)
+                if period == "daily"
+                else datetime.strptime(bucket, "%Y-%m-%d")
+            )
+            energy_series.append(SeriesPoint(label=ts.strftime(label_fmt), value=round(value, 2)))
+
+    estimated_cost_eur = round(total_energy * ENERGY_PRICE_EUR_PER_KWH, 2)
+    estimated_co2_kg = round(total_energy * GRID_CO2_KG_PER_KWH, 1)
+
+    executive_summary = _build_executive_summary(
+        total_energy_kwh=round(total_energy, 2),
+        energy_trend_pct=energy_trend_pct,
+        estimated_cost_eur=estimated_cost_eur,
+        estimated_co2_kg=estimated_co2_kg,
+        critical_alerts=critical_alerts,
+        warning_alerts=warning_alerts,
+        building_rows=building_rows,
+        period_label=PERIOD_LABELS[period],
+    )
+
     return ReportData(
         polygon_name=polygon.name,
         polygon_address=polygon.address,
@@ -275,8 +341,72 @@ def build_report_data(db: Session, polygon: models.Polygon, period: str) -> Repo
         incidents_open=incidents_open,
         incidents_in_progress=incidents_in_progress,
         incidents_resolved=incidents_resolved,
+        estimated_cost_eur=estimated_cost_eur,
+        estimated_co2_kg=estimated_co2_kg,
+        executive_summary=executive_summary,
         buildings=building_rows,
         top_alerts=top_alerts,
+        energy_series=energy_series,
+    )
+
+
+def _build_executive_summary(
+    *,
+    total_energy_kwh: float,
+    energy_trend_pct: float | None,
+    estimated_cost_eur: float,
+    estimated_co2_kg: float,
+    critical_alerts: int,
+    warning_alerts: int,
+    building_rows: list[BuildingReportRow],
+    period_label: str,
+) -> str:
+    """Parrafo en lenguaje natural que sintetiza el periodo, al estilo del
+    resumen ejecutivo de un informe corporativo: la cifra clave primero, el
+    contexto (tendencia, coste, huella) despues, y una mencion nominal a la
+    nave mejor y peor situada para que el lector sepa donde mirar."""
+    if not building_rows:
+        return (
+            f"Este polígono todavía no tiene naves dadas de alta, así que no hay "
+            f"datos de consumo que analizar en el periodo {period_label.lower()}."
+        )
+
+    trend_txt = ""
+    if energy_trend_pct is not None:
+        direction = "un aumento" if energy_trend_pct > 0 else "una reducción"
+        trend_txt = (
+            f", lo que supone {direction} del {abs(energy_trend_pct):.1f}% "
+            f"respecto al periodo anterior"
+        )
+
+    best = max(building_rows, key=lambda b: b.efficiency_score)
+    highest_risk = max(building_rows, key=lambda b: b.maintenance_risk)
+
+    if not critical_alerts and not warning_alerts:
+        alerts_txt = "sin alertas activas destacables"
+    else:
+        alerts_txt = (
+            f"{critical_alerts} alerta{'s' if critical_alerts != 1 else ''} crítica"
+            f"{'s' if critical_alerts != 1 else ''} y {warning_alerts} de aviso"
+        )
+
+    risk_txt = ""
+    if highest_risk.maintenance_risk >= 35:
+        risk_txt = (
+            f" La nave con mayor riesgo de mantenimiento es {highest_risk.code} "
+            f"({highest_risk.maintenance_label.lower()}, {highest_risk.maintenance_risk}/100)."
+        )
+
+    energy_fmt = f"{total_energy_kwh:,.0f}".replace(",", ".")
+    cost_fmt = f"{estimated_cost_eur:,.0f}".replace(",", ".")
+    co2_fmt = f"{estimated_co2_kg:,.0f}".replace(",", ".")
+
+    return (
+        f"El polígono consumió {energy_fmt} kWh en el periodo {period_label.lower()}"
+        f"{trend_txt}, con un coste estimado de {cost_fmt} € y una huella de "
+        f"{co2_fmt} kg de CO2 equivalente. Se registraron {alerts_txt}. "
+        f"La nave más eficiente fue {best.code} — {best.name.split(' - ')[-1]} "
+        f"(puntuación {best.efficiency_score}/100).{risk_txt}"
     )
 
 
@@ -342,6 +472,8 @@ def render_excel(report: ReportData) -> bytes:
             f"{report.avg_temperature:.1f} °C" if report.avg_temperature is not None else "—",
         ),
         ("Naves", str(len(report.buildings))),
+        ("Coste estimado", f"{report.estimated_cost_eur:,.0f} €".replace(",", ".")),
+        ("Huella de CO₂ estimada", f"{report.estimated_co2_kg:,.0f} kg".replace(",", ".")),
         ("Alertas críticas", str(report.critical_alerts)),
         ("Alertas de aviso", str(report.warning_alerts)),
         ("Incidencias abiertas", str(report.incidents_open)),
@@ -355,6 +487,15 @@ def render_excel(report: ReportData) -> bytes:
         ws.cell(row=r, column=c + 1, value=value).font = value_font
     autosize(ws, [24, 16, 24, 16])
 
+    summary_row = row + (len(kpis) // 2) + 2
+    ws.cell(row=summary_row, column=1, value="Resumen ejecutivo").font = Font(
+        bold=True, size=11, color=INK
+    )
+    ws.merge_cells(start_row=summary_row + 1, start_column=1, end_row=summary_row + 4, end_column=4)
+    summary_cell = ws.cell(row=summary_row + 1, column=1, value=report.executive_summary)
+    summary_cell.font = Font(size=10, color=INK)
+    summary_cell.alignment = Alignment(wrap_text=True, vertical="top")
+
     # --- Naves ---
     ws2 = wb.create_sheet("Naves")
     headers = [
@@ -363,6 +504,7 @@ def render_excel(report: ReportData) -> bytes:
         "Tipo",
         "Superficie (m²)",
         "Consumo (kWh)",
+        "Coste estimado (€)",
         "Eficiencia (0-100)",
         "Alertas críticas",
         "Alertas aviso",
@@ -378,6 +520,7 @@ def render_excel(report: ReportData) -> bytes:
             b.building_type,
             b.area_m2,
             b.energy_kwh,
+            b.cost_eur,
             b.efficiency_score,
             b.alerts_critical,
             b.alerts_warning,
@@ -386,9 +529,28 @@ def render_excel(report: ReportData) -> bytes:
         for c, v in enumerate(values, start=1):
             cell = ws2.cell(row=r, column=c, value=v)
             cell.border = border
-            if b.alerts_critical > 0 and c == 7:
+            if b.alerts_critical > 0 and c == 8:
                 cell.font = Font(color=CRITICAL, bold=True)
-    autosize(ws2, [8, 28, 14, 14, 14, 16, 14, 12, 20])
+    autosize(ws2, [8, 28, 14, 14, 14, 16, 16, 14, 12, 20])
+
+    if report.buildings:
+        n = len(report.buildings)
+        chart = BarChart()
+        chart.type = "col"
+        chart.title = "Consumo por nave (kWh)"
+        chart.y_axis.title = "kWh"
+        chart.style = 10
+        chart.height = 8
+        chart.width = 18
+        data = Reference(ws2, min_col=5, min_row=1, max_row=n + 1)
+        cats = Reference(ws2, min_col=1, min_row=2, max_row=n + 1)
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+        chart.dataLabels = DataLabelList()
+        chart.dataLabels.showVal = False
+        series = chart.series[0]
+        series.graphicalProperties.solidFill = BRAND_BLUE
+        ws2.add_chart(chart, f"A{n + 4}")
 
     # --- Alertas ---
     ws3 = wb.create_sheet("Alertas")
@@ -487,23 +649,35 @@ def render_pdf(report: ReportData) -> bytes:
     trend_txt = f"{report.energy_trend_pct:+.1f}%" if report.energy_trend_pct is not None else "—"
     trend_color = CRITICAL if (report.energy_trend_pct or 0) > 15 else INK
     temp_txt = f"{report.avg_temperature:.1f} °C" if report.avg_temperature is not None else "—"
+    cost_txt = f"{report.estimated_cost_eur:,.0f} €".replace(",", ".")
+    co2_txt = f"{report.estimated_co2_kg:,.0f} kg".replace(",", ".")
+
+    critical_color = CRITICAL if report.critical_alerts else INK
+    warning_color = WARNING if report.warning_alerts else INK
+    open_incidents = report.incidents_open + report.incidents_in_progress
+
+    blank_cell = Table([[""]], colWidths=[44 * mm])
+    blank_cell.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0, colors.white)]))
 
     kpi_row1 = [
         kpi_cell("CONSUMO TOTAL", f"{report.total_energy_kwh:,.0f} kWh".replace(",", ".")),
         kpi_cell("VS. PERIODO ANTERIOR", trend_txt, trend_color),
+        kpi_cell("COSTE ESTIMADO", cost_txt),
+        kpi_cell("HUELLA DE CO2 ESTIMADA", co2_txt),
+    ]
+    kpi_row2 = [
         kpi_cell("TEMPERATURA MEDIA", temp_txt),
         kpi_cell("NAVES", str(len(report.buildings))),
-    ]
-    critical_color = CRITICAL if report.critical_alerts else INK
-    warning_color = WARNING if report.warning_alerts else INK
-    open_incidents = report.incidents_open + report.incidents_in_progress
-    kpi_row2 = [
         kpi_cell("ALERTAS CRÍTICAS", str(report.critical_alerts), critical_color),
         kpi_cell("ALERTAS DE AVISO", str(report.warning_alerts), warning_color),
+    ]
+    kpi_row3 = [
         kpi_cell("INCIDENCIAS ABIERTAS", str(open_incidents)),
         kpi_cell("INCIDENCIAS RESUELTAS", str(report.incidents_resolved), OK),
+        blank_cell,
+        blank_cell,
     ]
-    kpi_table = Table([kpi_row1, kpi_row2], colWidths=[44 * mm] * 4, hAlign="LEFT")
+    kpi_table = Table([kpi_row1, kpi_row2, kpi_row3], colWidths=[44 * mm] * 4, hAlign="LEFT")
     kpi_table.setStyle(TableStyle([
         ("LEFTPADDING", (0, 0), (-1, -1), 2),
         ("RIGHTPADDING", (0, 0), (-1, -1), 2),
@@ -511,22 +685,78 @@ def render_pdf(report: ReportData) -> bytes:
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
     elements.append(kpi_table)
+    elements.append(Spacer(1, 3))
+    elements.append(Paragraph(
+        f"Coste y CO2 estimados a {ENERGY_PRICE_EUR_PER_KWH:.2f} €/kWh y "
+        f"{GRID_CO2_KG_PER_KWH:.2f} kg CO2/kWh (mix medio de red peninsular) — no proceden de "
+        f"una factura real.",
+        ParagraphStyle("Disclaimer", parent=body_style, fontSize=7, textColor=_hex(SLATE)),
+    ))
+
+    # --- Resumen ejecutivo ---
+    elements.append(Paragraph("Resumen ejecutivo", section_style))
+    summary_box = Table(
+        [[Paragraph(report.executive_summary, ParagraphStyle(
+            "ExecSummary", parent=body_style, fontSize=9.5, leading=14, textColor=_hex(INK),
+        ))]],
+        colWidths=[178 * mm],
+    )
+    summary_box.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), _hex("F8FAFC")),
+        ("BOX", (0, 0), (-1, -1), 0.6, _hex(BRAND_BLUE)),
+        ("LINEBEFORE", (0, 0), (0, 0), 3, _hex(BRAND_BLUE)),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+    ]))
+    elements.append(summary_box)
+
+    # --- Gráfico de consumo por nave ---
+    if report.buildings:
+        elements.append(Paragraph("Consumo por nave", section_style))
+        chart_values = [b.energy_kwh for b in report.buildings]
+        chart_labels = [b.code for b in report.buildings]
+        max_val = max(chart_values) if chart_values else 1
+
+        drawing = Drawing(178 * mm, 55 * mm)
+        bar = VerticalBarChart()
+        bar.x = 30
+        bar.y = 15
+        bar.width = 178 * mm - 50
+        bar.height = 55 * mm - 30
+        bar.data = [chart_values]
+        bar.categoryAxis.categoryNames = chart_labels
+        bar.categoryAxis.labels.fontSize = 8
+        bar.categoryAxis.labels.fillColor = _hex(SLATE)
+        bar.valueAxis.valueMin = 0
+        bar.valueAxis.valueMax = max_val * 1.15 if max_val else 1
+        bar.valueAxis.labels.fontSize = 7
+        bar.valueAxis.labels.fillColor = _hex(SLATE)
+        bar.bars[0].fillColor = _hex(BRAND_BLUE)
+        bar.barWidth = 12
+        bar.groupSpacing = 6
+        bar.strokeColor = None
+        drawing.add(bar)
+        drawing.add(String(0, 55 * mm - 8, "kWh", fontSize=7, fillColor=_hex(SLATE)))
+        elements.append(drawing)
 
     # --- Ranking de naves ---
-    elements.append(Paragraph("Consumo y eficiencia por nave", section_style))
+    elements.append(Paragraph("Consumo, coste y eficiencia por nave", section_style))
     if report.buildings:
-        rows = [["Nave", "Tipo", "Consumo", "Eficiencia", "Alertas", "Riesgo mant."]]
+        rows = [["Nave", "Tipo", "Consumo", "Coste", "Eficiencia", "Alertas", "Riesgo mant."]]
         for b in report.buildings:
             alerts_txt = f"{b.alerts_critical} crít. / {b.alerts_warning} aviso"
             rows.append([
                 Paragraph(f"{b.code} · {b.name}", body_style),
                 b.building_type,
                 f"{b.energy_kwh:,.1f} kWh".replace(",", "."),
+                f"{b.cost_eur:,.0f} €".replace(",", "."),
                 str(b.efficiency_score),
                 alerts_txt,
                 f"{b.maintenance_label} ({b.maintenance_risk})",
             ])
-        col_widths = [52 * mm, 22 * mm, 24 * mm, 20 * mm, 26 * mm, 30 * mm]
+        col_widths = [44 * mm, 18 * mm, 22 * mm, 18 * mm, 18 * mm, 26 * mm, 30 * mm]
         t = Table(rows, colWidths=col_widths, repeatRows=1)
         style = [
             ("BACKGROUND", (0, 0), (-1, 0), _hex(BRAND_BLUE)),
@@ -541,7 +771,7 @@ def render_pdf(report: ReportData) -> bytes:
         ]
         for i, b in enumerate(report.buildings, start=1):
             if b.alerts_critical > 0:
-                style.append(("TEXTCOLOR", (4, i), (4, i), _hex(CRITICAL)))
+                style.append(("TEXTCOLOR", (5, i), (5, i), _hex(CRITICAL)))
         t.setStyle(TableStyle(style))
         elements.append(t)
     else:
