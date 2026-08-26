@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: indu-twin-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: PLAN
+        value: business
+      # Ajusta estos dos con la URL real de Vercel una vez la tengas
+      # (Render > tu servicio > Environment). CORS_ORIGINS acepta varias
+      # separadas por coma si necesitas más de un dominio.
+      - key: CORS_ORIGINS
+        value: https://indu-twin.vercel.app
+      - key: APP_BASE_URL
+        value: https://indu-twin.vercel.app
+      # Opcional: activa notificaciones por email de alertas criticas.
+      - key: SMTP_HOST
+        value: ""

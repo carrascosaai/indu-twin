@@ -1,0 +1,29 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8010:8010"
+    environment:
+      CORS_ORIGINS: "http://localhost:5173,http://localhost:8080"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-change-in-production}
+      PLAN: ${PLAN:-free}
+    volumes:
+      - indu_twin_data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8010
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  indu_twin_data:
