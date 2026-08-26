@@ -55,6 +55,25 @@ function downloadBlob(path: string, filename: string) {
   });
 }
 
+/** Igual que downloadBlob, pero usa el nombre de fichero que decide el
+ * backend (Content-Disposition) — lo necesitan los informes, que incluyen
+ * el poligono/periodo/fecha en el nombre. */
+function downloadBlobServerNamed(path: string, fallbackFilename: string) {
+  return api.get(path, { responseType: "blob" }).then((res) => {
+    const disposition: string | undefined = res.headers["content-disposition"];
+    const match = disposition?.match(/filename="?([^"]+)"?/);
+    const filename = match?.[1] ?? fallbackFilename;
+    const url = URL.createObjectURL(res.data);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  });
+}
+
 export const downloadPolygonAlertsCsv = (polygonId: number) =>
   downloadBlob(`/api/polygons/${polygonId}/export/alerts.csv`, `alertas_poligono_${polygonId}.csv`);
 
@@ -62,6 +81,19 @@ export const downloadBuildingReadingsCsv = (buildingId: number, hours: number) =
   downloadBlob(
     `/api/buildings/${buildingId}/export/readings.csv?hours=${hours}`,
     `lecturas_nave_${buildingId}.csv`
+  );
+
+export type ReportPeriod = "daily" | "weekly" | "monthly";
+export type ReportFormat = "pdf" | "xlsx";
+
+export const downloadPolygonReport = (
+  polygonId: number,
+  period: ReportPeriod,
+  format: ReportFormat
+) =>
+  downloadBlobServerNamed(
+    `/api/polygons/${polygonId}/reports/${period}?format=${format}`,
+    `informe.${format}`
   );
 
 export const fetchPolygons = () => api.get<Polygon[]>("/api/polygons").then((r) => r.data);

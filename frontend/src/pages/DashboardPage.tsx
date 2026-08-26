@@ -9,6 +9,7 @@ import EnergyForecastChart from "../components/EnergyForecastChart";
 import KpiCard from "../components/KpiCard";
 import LiveIndicator from "../components/LiveIndicator";
 import NewBuildingModal from "../components/NewBuildingModal";
+import ReportsMenu from "../components/ReportsMenu";
 import { DashboardSkeleton } from "../components/Skeleton";
 import SeriesChart from "../components/SeriesChart";
 import StateMessage from "../components/StateMessage";
@@ -119,6 +120,7 @@ export default function DashboardPage() {
               <Download size={13} strokeWidth={2} />
               Exportar alertas
             </button>
+            <ReportsMenu polygonId={dashboard.polygon.id} />
             {user?.role === "admin" && (
               <button
                 onClick={() => setShowNewBuilding(true)}

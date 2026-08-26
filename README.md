@@ -62,6 +62,7 @@ Ver [`DEPLOY.md`](DEPLOY.md) para el paso a paso: frontend en Vercel, backend en
 - Panel de nave: sensores en vivo, históricos con rango 24h/7d/30d, alertas, incidencias, eficiencia comparada con la media del polígono, riesgo de mantenimiento.
 - Vista global de alertas e incidencias por polígono (`/polygon/:id/alerts`), con filtros por estado.
 - Exportación CSV de alertas y lecturas.
+- **Informes periódicos en PDF y Excel** (botón "Informes" en el dashboard del polígono): diario, semanal o mensual, con KPIs del periodo (consumo, tendencia vs. periodo anterior, temperatura media, alertas, incidencias), tabla de consumo/eficiencia/riesgo por nave y detalle de las alertas más recientes. `GET /api/polygons/{id}/reports/{daily|weekly|monthly}?format=pdf|xlsx` (`app/services/reports.py`).
 - Autenticación JWT con roles **admin / viewer / tenant** (empresa individual dentro de un polígono, ve solo su propia nave — pensado para que el gestor del polígono dé acceso de autoservicio a sus inquilinos sin exponer datos de otras empresas), multi-polígono.
 - **Alta de la primera cuenta**: cada cliente tiene su propio despliegue (ver Docker más abajo); la primera vez que arranca sin usuarios, `/login` ofrece crear la cuenta admin inicial sin tocar la base de datos a mano.
 - **Notificaciones por email** de alertas críticas nuevas (o que escalan a crítico) a los administradores/operarios y a la empresa dueña de la nave si tiene cuenta tenant. Desactivado por defecto; se activa configurando `SMTP_*` en `.env` (ver `.env.example`).
@@ -96,7 +97,7 @@ venv\Scripts\pip install -r requirements-dev.txt
 venv\Scripts\pytest -v
 ```
 
-128 tests: reglas de anomalías y umbrales por nave (unitarios), autenticación/roles/rate limiting, tenant scoping, límites por plan, recuperación de contraseña, API keys de sensor, CRUD de polígonos/naves/usuarios, alertas e incidencias (integración contra una base de datos SQLite en memoria, aislada de `indu_twin.db`).
+138 tests: reglas de anomalías y umbrales por nave (unitarios), autenticación/roles/rate limiting, tenant scoping, límites por plan, recuperación de contraseña, API keys de sensor, informes PDF/Excel, CRUD de polígonos/naves/usuarios, alertas e incidencias (integración contra una base de datos SQLite en memoria, aislada de `indu_twin.db`).
 
 ## Calidad de código
 

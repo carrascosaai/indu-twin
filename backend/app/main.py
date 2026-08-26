@@ -17,6 +17,7 @@ from app.routers import (
     ingest,
     plan,
     polygons,
+    reports,
     sensors,
     users,
 )
@@ -61,6 +62,7 @@ app.include_router(export.router)
 app.include_router(ingest.router)
 app.include_router(users.router)
 app.include_router(plan.router)
+app.include_router(reports.router)
 
 
 @app.get("/api/health")
