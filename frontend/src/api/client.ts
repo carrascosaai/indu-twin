@@ -217,7 +217,7 @@ export const createUser = (payload: {
 
 export const updateUser = (
   userId: number,
-  payload: { role?: UserRole; building_id?: number | null }
+  payload: { role?: UserRole; building_id?: number | null; password?: string }
 ) => api.patch<User>(`/api/users/${userId}`, payload).then((r) => r.data);
 
 export const deleteUser = (userId: number) => api.delete(`/api/users/${userId}`);

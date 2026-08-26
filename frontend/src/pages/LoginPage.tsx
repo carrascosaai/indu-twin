@@ -341,6 +341,10 @@ export default function LoginPage() {
           </>
         )}
       </div>
+      <p className="relative mt-4 max-w-sm text-center text-[11px] leading-relaxed text-slate-500">
+        Instancia de demostración con datos simulados. No introduzcas contraseñas ni información
+        real — cualquier dato guardado aquí puede reiniciarse sin aviso previo.
+      </p>
     </div>
   );
 }

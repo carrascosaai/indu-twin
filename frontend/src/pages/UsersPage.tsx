@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, ShieldCheck, Trash2, Users as UsersIcon, X } from "lucide-react";
 import { useState } from "react";
 import { createUser, deleteUser, fetchAllBuildings, fetchUsers, updateUser } from "../api/client";
+import ResetUserPasswordButton from "../components/ResetUserPasswordButton";
 import StateMessage from "../components/StateMessage";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -282,14 +283,17 @@ export default function UsersPage() {
                         {new Date(u.created_at).toLocaleDateString("es-ES")}
                       </td>
                       <td className="px-5 py-3 text-right">
-                        <button
-                          onClick={() => handleDelete(u.id, u.full_name)}
-                          disabled={u.id === currentUser?.id}
-                          title={u.id === currentUser?.id ? "No puedes eliminar tu propia cuenta" : "Eliminar"}
-                          className="rounded-md p-1.5 text-slate-400 dark:text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                        >
-                          <Trash2 size={14} strokeWidth={2} />
-                        </button>
+                        <div className="inline-flex items-center gap-0.5">
+                          <ResetUserPasswordButton userId={u.id} />
+                          <button
+                            onClick={() => handleDelete(u.id, u.full_name)}
+                            disabled={u.id === currentUser?.id}
+                            title={u.id === currentUser?.id ? "No puedes eliminar tu propia cuenta" : "Eliminar"}
+                            className="rounded-md p-1.5 text-slate-400 dark:text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                          >
+                            <Trash2 size={14} strokeWidth={2} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

@@ -83,6 +83,7 @@ class UserUpdate(BaseModel):
     role: UserRole | None = None
     full_name: str | None = None
     building_id: int | None = None
+    password: str | None = None
 
 
 # ---------- Polygon ----------

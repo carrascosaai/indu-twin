@@ -229,6 +229,9 @@ export default function Layout({ children }: { children: ReactNode }) {
               </>
             )}
           </p>
+          <p className="mt-1 text-center text-[10px] text-slate-700">
+            Demo con datos simulados — no uses datos reales
+          </p>
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col pt-[52px] md:pt-0">{children}</div>

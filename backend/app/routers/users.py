@@ -72,6 +72,12 @@ def update_user(
     else:
         new_building_id = None
 
+    new_password = data.pop("password", None)
+    if new_password is not None:
+        if len(new_password) < 8:
+            raise HTTPException(400, "La contraseña debe tener al menos 8 caracteres")
+        user.hashed_password = hash_password(new_password)
+
     for field, value in data.items():
         setattr(user, field, value)
     user.building_id = new_building_id
