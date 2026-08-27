@@ -28,6 +28,7 @@ def _sensor_latest(db: Session, sensor: models.Sensor) -> schemas.SensorLatest:
         sensor_type=sensor.sensor_type,
         name=sensor.name,
         unit=sensor.unit,
+        is_simulated=sensor.is_simulated,
         latest_value=latest.value if latest else None,
         latest_timestamp=latest.timestamp if latest else None,
     )

@@ -69,6 +69,7 @@ export interface SensorLatest {
   sensor_type: SensorType;
   name: string;
   unit: string;
+  is_simulated: boolean;
   latest_value: number | null;
   latest_timestamp: string | null;
 }

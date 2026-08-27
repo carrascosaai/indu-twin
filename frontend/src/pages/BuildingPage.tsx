@@ -57,6 +57,7 @@ function SensorChartCard({
   value,
   hours,
   showDeviceKey,
+  isSimulated,
 }: {
   sensorId: number;
   type: SensorType;
@@ -64,6 +65,7 @@ function SensorChartCard({
   value: number | null;
   hours: number;
   showDeviceKey: boolean;
+  isSimulated: boolean;
 }) {
   const { data: readings } = useSensorReadings(sensorId, hours);
   const meta = SENSOR_META[type];
@@ -78,6 +80,23 @@ function SensorChartCard({
             {meta.label}
           </h3>
           {showDeviceKey && <DeviceKeyButton sensorId={sensorId} />}
+          {showDeviceKey && (
+            <span
+              className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
+              style={
+                isSimulated
+                  ? { color: "var(--text-tertiary)", backgroundColor: "var(--hover-tint)" }
+                  : { color: "#059669", backgroundColor: "color-mix(in srgb, #059669 14%, var(--surface))" }
+              }
+              title={
+                isSimulated
+                  ? "Sin lecturas reales todavía: los datos son del simulador"
+                  : "Recibiendo lecturas reales de un dispositivo físico"
+              }
+            >
+              {isSimulated ? "Simulado" : "Real"}
+            </span>
+          )}
         </div>
         <span className="font-display text-xl font-semibold" style={{ color: meta.color }}>
           {value !== null ? formatSensorValue(type, value, unit) : "—"}
@@ -302,6 +321,7 @@ export default function BuildingPage() {
               value={s.latest_value}
               hours={hours}
               showDeviceKey={user?.role === "admin"}
+              isSimulated={s.is_simulated}
             />
           ))}
         </div>

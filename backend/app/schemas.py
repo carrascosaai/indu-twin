@@ -162,6 +162,7 @@ class SensorOut(BaseModel):
     sensor_type: SensorType
     name: str
     unit: str
+    is_simulated: bool
 
 
 class SensorLatest(SensorOut):

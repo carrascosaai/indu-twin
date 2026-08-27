@@ -2,7 +2,7 @@ import enum
 import secrets
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -170,6 +170,13 @@ class Sensor(Base):
     api_key: Mapped[str] = mapped_column(
         String(64), nullable=False, unique=True, default=generate_sensor_api_key
     )
+    # True mientras nadie ha mandado una lectura real via /api/ingest/reading
+    # con la api_key de este sensor: el simulador sigue generando datos de
+    # mentira para el. En cuanto llega la primera lectura real (ver
+    # app/routers/ingest.py), se pone a False y el simulador deja de tocarlo
+    # — si no, el dispositivo real y el simulador mezclarian datos falsos y
+    # reales en el mismo sensor.
+    is_simulated: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     building: Mapped["Building"] = relationship(back_populates="sensors")

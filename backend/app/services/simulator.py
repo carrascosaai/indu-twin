@@ -208,7 +208,10 @@ def run_simulation_tick(
 ) -> int:
     ts = timestamp or datetime.now(UTC)
     interval = interval_seconds or settings.simulation_interval_seconds
-    sensors = db.execute(select(Sensor)).scalars().all()
+    # Los sensores que ya reciben lecturas reales (is_simulated=False, ver
+    # app/routers/ingest.py) no se tocan: mezclar aqui datos falsos con los
+    # reales que manda el dispositivo fisico rompería las alertas.
+    sensors = db.execute(select(Sensor).where(Sensor.is_simulated.is_(True))).scalars().all()
     count = 0
     for sensor in sensors:
         # SAVEPOINT por sensor: si uno falla, solo se descarta su cambio,

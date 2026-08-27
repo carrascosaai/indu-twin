@@ -26,6 +26,10 @@ def ingest_reading(payload: schemas.ReadingIngest, db: Session = Depends(get_db)
         raise HTTPException(404, "Sensor no encontrado")
     if not secrets.compare_digest(payload.api_key, sensor.api_key):
         raise HTTPException(401, "API key invalida para este sensor")
+    if sensor.is_simulated:
+        # Primera lectura real de este sensor: el simulador deja de
+        # generarle datos de mentira a partir de ahora (ver run_simulation_tick).
+        sensor.is_simulated = False
     reading = process_new_reading(db, sensor, payload.value, payload.timestamp)
     db.commit()
     db.refresh(reading)
