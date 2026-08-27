@@ -46,6 +46,21 @@ def me(user: models.User = Depends(get_current_user)):
     return user
 
 
+@router.patch("/me/telegram", response_model=schemas.UserOut)
+def link_telegram(
+    payload: schemas.TelegramLinkRequest,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    """Cada usuario vincula su propio chat de Telegram (nadie mas puede
+    hacerlo por el): necesita haber hablado antes con el bot para conseguir
+    su chat_id, asi que tiene que ser un paso que haga la propia persona."""
+    user.telegram_chat_id = payload.telegram_chat_id or None
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @router.get("/setup-status", response_model=schemas.SetupStatus)
 def setup_status(db: Session = Depends(get_db)):
     """Publico: le dice al frontend si esta instancia todavia no tiene

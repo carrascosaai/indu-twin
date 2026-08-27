@@ -69,6 +69,11 @@ class UserOut(BaseModel):
     role: UserRole
     building_id: int | None
     created_at: datetime
+    telegram_chat_id: str | None = None
+
+
+class TelegramLinkRequest(BaseModel):
+    telegram_chat_id: str | None = None  # None/"" para desvincular
 
 
 class UserCreate(BaseModel):

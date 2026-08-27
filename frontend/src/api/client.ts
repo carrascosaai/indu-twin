@@ -233,4 +233,9 @@ export const createGoal = (
 
 export const deleteGoal = (goalId: number) => api.delete(`/api/goals/${goalId}`);
 
+export const linkTelegram = (telegramChatId: string | null) =>
+  api
+    .patch<User>("/api/auth/me/telegram", { telegram_chat_id: telegramChatId })
+    .then((r) => r.data);
+
 export default api;

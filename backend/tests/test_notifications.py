@@ -126,6 +126,100 @@ def test_warning_ingest_does_not_trigger_notification(
         mock_smtp.assert_not_called()
 
 
+def _configure_telegram(monkeypatch):
+    monkeypatch.setattr(settings, "telegram_bot_token", "12345:test-token")
+
+
+def test_is_telegram_configured_false_by_default():
+    assert notifications.is_telegram_configured() is False
+
+
+def test_notify_critical_alert_sends_telegram_when_configured(
+    monkeypatch, db_session, admin_user, building, temperature_sensor
+):
+    from app.models import Alert, AlertSeverity, AlertStatus, AlertType
+
+    _configure_telegram(monkeypatch)
+    admin_user.telegram_chat_id = "999888777"
+    db_session.commit()
+
+    alert = Alert(
+        building_id=building.id,
+        sensor_id=temperature_sensor.id,
+        severity=AlertSeverity.critical,
+        alert_type=AlertType.threshold,
+        message="Temperatura critica",
+        status=AlertStatus.active,
+    )
+    db_session.add(alert)
+    db_session.commit()
+
+    mock_response = MagicMock()
+    mock_response.status = 200
+    mock_response.__enter__.return_value = mock_response
+    with patch("app.services.notifications.urllib.request.urlopen", return_value=mock_response) as mock_urlopen:
+        notifications.notify_critical_alert(db_session, alert, building)
+
+    mock_urlopen.assert_called_once()
+    request = mock_urlopen.call_args[0][0]
+    assert "999888777" in request.data.decode()
+
+
+def test_notify_critical_alert_skips_users_without_telegram_linked(
+    monkeypatch, db_session, admin_user, building, temperature_sensor
+):
+    from app.models import Alert, AlertSeverity, AlertStatus, AlertType
+
+    _configure_telegram(monkeypatch)
+    # admin_user.telegram_chat_id sigue siendo None (no lo ha vinculado).
+    alert = Alert(
+        building_id=building.id,
+        sensor_id=temperature_sensor.id,
+        severity=AlertSeverity.critical,
+        alert_type=AlertType.threshold,
+        message="test",
+        status=AlertStatus.active,
+    )
+    db_session.add(alert)
+    db_session.commit()
+
+    with patch("app.services.notifications.urllib.request.urlopen") as mock_urlopen:
+        notifications.notify_critical_alert(db_session, alert, building)
+    mock_urlopen.assert_not_called()
+
+
+def test_telegram_failure_does_not_block_email(
+    monkeypatch, db_session, admin_user, building, temperature_sensor
+):
+    from app.models import Alert, AlertSeverity, AlertStatus, AlertType
+
+    _configure_smtp(monkeypatch)
+    _configure_telegram(monkeypatch)
+    admin_user.telegram_chat_id = "999888777"
+    db_session.commit()
+
+    alert = Alert(
+        building_id=building.id,
+        sensor_id=temperature_sensor.id,
+        severity=AlertSeverity.critical,
+        alert_type=AlertType.threshold,
+        message="test",
+        status=AlertStatus.active,
+    )
+    db_session.add(alert)
+    db_session.commit()
+
+    mock_conn = MagicMock()
+    with (
+        patch("app.services.notifications.smtplib.SMTP") as mock_smtp,
+        patch("app.services.notifications.urllib.request.urlopen", side_effect=OSError("boom")),
+    ):
+        mock_smtp.return_value.__enter__.return_value = mock_conn
+        notifications.notify_critical_alert(db_session, alert, building)  # no debe lanzar
+
+    mock_conn.send_message.assert_called_once()
+
+
 def test_staying_critical_does_not_renotify(monkeypatch, client, admin_user, temperature_sensor):
     _configure_smtp(monkeypatch)
     mock_conn = MagicMock()

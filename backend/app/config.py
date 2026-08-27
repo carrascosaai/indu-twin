@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = True
     app_base_url: str = "http://localhost:5173"
 
+    # Alertas criticas tambien por Telegram (ademas de email), mas rapido de
+    # configurar que WhatsApp Business API y sin coste. Se crea un bot con
+    # @BotFather en Telegram y se pone aqui su token; si esta vacio, esta
+    # via de notificacion se desactiva silenciosamente igual que el email.
+    telegram_bot_token: str = ""
+
     # Plan comercial de esta instancia: free / pro / business. Determina los
     # limites de poligonos, naves y usuarios (ver app/services/plans.py).
     plan: str = "free"

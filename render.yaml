@@ -30,6 +30,11 @@ services:
       # desactivan solas sin romper nada.
       - key: SMTP_HOST
         value: ""
+      # Opcional: activa alertas criticas por Telegram (ademas del email).
+      # Se crea con @BotFather en Telegram; cada usuario vincula su propio
+      # chat desde la app (icono de avion de papel junto al cambio de tema).
+      - key: TELEGRAM_BOT_TOKEN
+        value: ""
       # Base de datos persistente (ver seccion "databases" mas abajo). Sin
       # esto, el backend usaria SQLite en el disco efimero del contenedor,
       # que se borra en cada redeploy - inaceptable en cuanto haya sensores

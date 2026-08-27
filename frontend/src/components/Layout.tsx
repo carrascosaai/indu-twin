@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { BellRing, Building2, Factory, LogOut, MapPin, Menu, Moon, Plus, Sun, Trash2, Users, X } from "lucide-react";
+import { BellRing, Building2, Factory, LogOut, MapPin, Menu, Moon, Plus, Send, Sun, Trash2, Users, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { deletePolygon } from "../api/client";
@@ -8,6 +8,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import { usePlanStatus, usePolygons } from "../hooks/useApi";
 import NewPolygonModal from "./NewPolygonModal";
+import TelegramLinkModal from "./TelegramLinkModal";
 
 function NavItem({
   to,
@@ -52,6 +53,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const activePolygonId = params.polygonId ? Number(params.polygonId) : polygons?.[0]?.id;
   const isAlertsRoute = location.pathname.includes("/alerts");
   const [showNewPolygon, setShowNewPolygon] = useState(false);
+  const [showTelegramLink, setShowTelegramLink] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -211,6 +213,17 @@ export default function Layout({ children }: { children: ReactNode }) {
               Cerrar sesión
             </button>
             <button
+              onClick={() => setShowTelegramLink(true)}
+              title={user?.telegram_chat_id ? "Telegram vinculado" : "Vincular alertas de Telegram"}
+              className={`flex shrink-0 items-center justify-center rounded-md border p-1.5 transition ${
+                user?.telegram_chat_id
+                  ? "border-blue-400/30 text-blue-400"
+                  : "border-white/10 text-slate-300 hover:border-white/20 hover:bg-white/[0.04]"
+              }`}
+            >
+              <Send size={14} strokeWidth={2} />
+            </button>
+            <button
               onClick={toggleTheme}
               title={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
               className="flex shrink-0 items-center justify-center rounded-md border border-white/10 p-1.5 text-slate-300 transition hover:border-white/20 hover:bg-white/[0.04]"
@@ -247,6 +260,8 @@ export default function Layout({ children }: { children: ReactNode }) {
           }}
         />
       )}
+
+      {showTelegramLink && <TelegramLinkModal onClose={() => setShowTelegramLink(false)} />}
     </div>
   );
 }

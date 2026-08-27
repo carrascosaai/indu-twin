@@ -14,6 +14,7 @@ export interface User {
   role: UserRole;
   building_id: number | null;
   created_at: string;
+  telegram_chat_id: string | null;
 }
 
 export interface Polygon {

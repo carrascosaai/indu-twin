@@ -97,6 +97,12 @@ class User(Base):
         DateTime(timezone=True), nullable=True
     )
 
+    # Chat de Telegram donde este usuario quiere recibir alertas criticas
+    # (ademas del email, si esta configurado). Lo rellena el propio usuario
+    # (no un admin por el): tiene que haber hablado con el bot primero para
+    # conseguir su chat_id. None = no quiere/no ha configurado Telegram.
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     building: Mapped["Building | None"] = relationship()
 
 
