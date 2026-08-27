@@ -5,9 +5,17 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.deps import get_db
+from app.services import rate_limit
 from app.services.simulator import process_new_reading
 
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
+
+# Un sensor real manda como mucho una lectura por minuto (ver
+# SEND_INTERVAL_MS en el firmware); esto deja mucho margen por encima de eso
+# y solo frena un uso claramente anormal - un firmware con un bucle sin
+# `delay`, o una api_key filtrada y usada para inundar el endpoint.
+INGEST_MAX_REQUESTS = 30
+INGEST_WINDOW_SECONDS = 60
 
 
 @router.post("/reading", response_model=schemas.SensorReadingOut, status_code=201)
@@ -21,6 +29,11 @@ def ingest_reading(payload: schemas.ReadingIngest, db: Session = Depends(get_db)
     sensor. Reutiliza la misma logica de reglas/alertas que el simulador via
     `process_new_reading`.
     """
+    if rate_limit.hit(
+        f"ingest:{payload.sensor_id}", INGEST_MAX_REQUESTS, INGEST_WINDOW_SECONDS
+    ):
+        raise HTTPException(429, "Demasiadas lecturas de este sensor en poco tiempo")
+
     sensor = db.get(models.Sensor, payload.sensor_id)
     if not sensor:
         raise HTTPException(404, "Sensor no encontrado")

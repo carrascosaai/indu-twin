@@ -35,6 +35,7 @@ app.dependency_overrides[get_db] = override_get_db
 def _fresh_database(monkeypatch):
     Base.metadata.create_all(bind=engine)
     rate_limit._attempts.clear()
+    rate_limit._hits.clear()
     # Los tests no deben depender del .env local del desarrollador (p.ej. un
     # PLAN=business puesto para la demo): se fija el plan por defecto salvo
     # que un test concreto lo sobreescriba explicitamente.
