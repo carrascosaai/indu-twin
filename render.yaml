@@ -6,6 +6,13 @@ services:
     dockerfilePath: ./Dockerfile
     plan: free
     healthCheckPath: /api/health
+    # Sin esto, Render redespliega (y por tanto resetea la base de datos
+    # efimera, incluidas las contraseñas) con CUALQUIER push al repo,
+    # aunque el cambio sea solo del frontend.
+    buildFilter:
+      paths:
+        - backend/**
+        - render.yaml
     envVars:
       - key: JWT_SECRET_KEY
         generateValue: true
