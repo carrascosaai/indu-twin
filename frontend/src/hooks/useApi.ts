@@ -4,6 +4,7 @@ import {
   fetchBuildingDashboard,
   fetchBuildings,
   fetchDefaultThresholds,
+  fetchGoals,
   fetchPlanStatus,
   fetchPolygonDashboard,
   fetchPolygonIncidents,
@@ -84,4 +85,12 @@ export const usePlanStatus = () =>
     queryKey: ["plan-status"],
     queryFn: fetchPlanStatus,
     staleTime: 30_000,
+  });
+
+export const useGoals = (polygonId: number | undefined) =>
+  useQuery({
+    queryKey: ["goals", polygonId],
+    queryFn: () => fetchGoals(polygonId as number),
+    enabled: polygonId !== undefined,
+    staleTime: 60_000,
   });

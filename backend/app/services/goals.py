@@ -101,9 +101,11 @@ def goal_progress(db: Session, goal: models.EnergyGoal, now: datetime | None = N
         reduction_achieved = expected_kwh_at_baseline - current_kwh
         progress_pct = max(0.0, min(100.0, reduction_achieved / reduction_needed * 100))
     else:
-        # target_reduction_pct <= 0 (objetivo sin reduccion real, raro pero
-        # no invalido): se considera cumplido mientras no se supere la linea base.
-        progress_pct = 100.0 if current_kwh <= expected_kwh_at_baseline else 0.0
+        # Practicamente sin tiempo transcurrido (recien creado) o sin
+        # consumo de linea base con el que comparar: no hay progreso que
+        # mostrar todavia, no "ya cumplido" - un 100% aqui confundiria a
+        # quien acaba de crear el objetivo y ve la barra ya llena.
+        progress_pct = 0.0
 
     is_on_track = current_kwh <= target_kwh
     days_remaining = max((end_date - now).days, 0)

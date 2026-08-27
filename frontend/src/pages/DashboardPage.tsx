@@ -6,6 +6,7 @@ import { downloadPolygonAlertsCsv } from "../api/client";
 import AlertsList from "../components/AlertsList";
 import EfficiencyBadge from "../components/EfficiencyBadge";
 import EnergyForecastChart from "../components/EnergyForecastChart";
+import GoalsPanel from "../components/GoalsPanel";
 import KpiCard from "../components/KpiCard";
 import LiveIndicator from "../components/LiveIndicator";
 import NewBuildingModal from "../components/NewBuildingModal";
@@ -246,6 +247,8 @@ export default function DashboardPage() {
             <SeriesChart data={dashboard.temperature_series} color="#f97316" unit="C" />
           </div>
         </div>
+
+        <GoalsPanel polygonId={dashboard.polygon.id} buildings={buildings ?? []} />
 
         <div className="card p-5">
           <div className="mb-3 flex items-baseline justify-between">

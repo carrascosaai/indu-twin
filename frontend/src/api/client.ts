@@ -6,6 +6,7 @@ import type {
   BuildingThresholds,
   BuildingWithPolygon,
   DefaultThresholds,
+  EnergyGoal,
   Incident,
   Polygon,
   PolygonDashboard,
@@ -221,5 +222,15 @@ export const updateUser = (
 ) => api.patch<User>(`/api/users/${userId}`, payload).then((r) => r.data);
 
 export const deleteUser = (userId: number) => api.delete(`/api/users/${userId}`);
+
+export const fetchGoals = (polygonId: number) =>
+  api.get<EnergyGoal[]>(`/api/polygons/${polygonId}/goals`).then((r) => r.data);
+
+export const createGoal = (
+  polygonId: number,
+  payload: { title: string; target_reduction_pct: number; duration_days?: number; building_id?: number | null }
+) => api.post<EnergyGoal>(`/api/polygons/${polygonId}/goals`, payload).then((r) => r.data);
+
+export const deleteGoal = (goalId: number) => api.delete(`/api/goals/${goalId}`);
 
 export default api;

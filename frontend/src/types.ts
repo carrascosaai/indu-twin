@@ -133,6 +133,24 @@ export interface PolygonDashboard {
   recent_alerts: Alert[];
 }
 
+export interface EnergyGoal {
+  id: number;
+  polygon_id: number;
+  building_id: number | null;
+  title: string;
+  target_reduction_pct: number;
+  baseline_kwh: number;
+  baseline_days: number;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+  current_kwh: number;
+  target_kwh: number;
+  progress_pct: number;
+  is_on_track: boolean;
+  days_remaining: number;
+}
+
 export interface BuildingDashboard {
   building: Building;
   sensors: SensorLatest[];
