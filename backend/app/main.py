@@ -13,6 +13,7 @@ from app.routers import (
     buildings,
     dashboard,
     export,
+    goals,
     incidents,
     ingest,
     plan,
@@ -23,6 +24,7 @@ from app.routers import (
 )
 from app.services.backup import backup_loop
 from app.services.mqtt_ingest import start_mqtt_client
+from app.services.scheduled_reports import scheduled_reports_loop
 from app.services.simulator import simulation_loop
 
 logging.basicConfig(level=logging.INFO)
@@ -33,10 +35,12 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     task = asyncio.create_task(simulation_loop())
     backup_task = asyncio.create_task(backup_loop())
+    reports_task = asyncio.create_task(scheduled_reports_loop())
     mqtt_client = start_mqtt_client()
     yield
     task.cancel()
     backup_task.cancel()
+    reports_task.cancel()
     if mqtt_client:
         mqtt_client.loop_stop()
 
@@ -63,6 +67,7 @@ app.include_router(ingest.router)
 app.include_router(users.router)
 app.include_router(plan.router)
 app.include_router(reports.router)
+app.include_router(goals.router)
 
 
 @app.get("/api/health")

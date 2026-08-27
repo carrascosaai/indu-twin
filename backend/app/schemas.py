@@ -273,3 +273,31 @@ class BuildingDashboardOut(BaseModel):
     predicted_energy_kwh_24h: float | None
     maintenance_risk_score: int
     maintenance_risk_label: str
+
+
+# ---------- Objetivos de consumo (KPIs) ----------
+class EnergyGoalCreate(BaseModel):
+    building_id: int | None = None  # None = objetivo para todo el poligono
+    title: str
+    target_reduction_pct: float
+    duration_days: int = 90
+
+
+class EnergyGoalOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    polygon_id: int
+    building_id: int | None
+    title: str
+    target_reduction_pct: float
+    baseline_kwh: float
+    baseline_days: int
+    start_date: datetime
+    end_date: datetime
+    created_at: datetime
+    # Calculado en el momento de servir la respuesta, no almacenado.
+    current_kwh: float
+    target_kwh: float
+    progress_pct: float
+    is_on_track: bool
+    days_remaining: int

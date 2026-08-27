@@ -218,6 +218,52 @@ class Alert(Base):
     building: Mapped["Building"] = relationship(back_populates="alerts")
 
 
+class ReportSchedule(Base):
+    """Estado de los informes automaticos por email, por poligono y periodo
+    (weekly/monthly). Se guarda en la base de datos (no en memoria ni en
+    disco) para que sobreviva a que el proceso se reinicie o el servicio se
+    duerma por inactividad (plan free de Render) - sin esto, cada reinicio
+    olvidaria cuando toca mandar el siguiente informe."""
+
+    __tablename__ = "report_schedules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    polygon_id: Mapped[int] = mapped_column(ForeignKey("polygons.id"), nullable=False)
+    period: Mapped[str] = mapped_column(String(10), nullable=False)  # "weekly" | "monthly"
+    last_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    polygon: Mapped["Polygon"] = relationship()
+
+
+class EnergyGoal(Base):
+    """Objetivo de reduccion de consumo configurable por un admin, con una
+    linea base capturada al crearlo para poder calcular el progreso real
+    sin depender de que nadie vuelva a introducir datos manualmente."""
+
+    __tablename__ = "energy_goals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    polygon_id: Mapped[int] = mapped_column(ForeignKey("polygons.id"), nullable=False)
+    building_id: Mapped[int | None] = mapped_column(
+        ForeignKey("buildings.id"), nullable=True
+    )  # None = objetivo para todo el poligono
+    title: Mapped[str] = mapped_column(String(150), nullable=False)
+    target_reduction_pct: Mapped[float] = mapped_column(Float, nullable=False)
+    # kWh consumidos en los `baseline_days` anteriores a la creacion del
+    # objetivo - el punto de comparacion fijo contra el que se mide el
+    # progreso, para que no se mueva la meta mientras el objetivo esta activo.
+    baseline_kwh: Mapped[float] = mapped_column(Float, nullable=False)
+    baseline_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    end_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    polygon: Mapped["Polygon"] = relationship()
+    building: Mapped["Building | None"] = relationship()
+
+
 class Incident(Base):
     __tablename__ = "incidents"
 

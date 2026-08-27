@@ -25,6 +25,26 @@ services:
         value: https://indu-twin.vercel.app
       - key: APP_BASE_URL
         value: https://indu-twin.vercel.app
-      # Opcional: activa notificaciones por email de alertas criticas.
+      # Opcional: activa notificaciones por email de alertas criticas y el
+      # envio de informes automaticos. Si se deja vacio, esas funciones se
+      # desactivan solas sin romper nada.
       - key: SMTP_HOST
         value: ""
+      # Base de datos persistente (ver seccion "databases" mas abajo). Sin
+      # esto, el backend usaria SQLite en el disco efimero del contenedor,
+      # que se borra en cada redeploy - inaceptable en cuanto haya sensores
+      # reales mandando datos.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: indu-twin-db
+          property: connectionString
+
+databases:
+  - name: indu-twin-db
+    databaseName: indutwin
+    user: indutwin
+    plan: free
+    # Aviso: el plan free de Postgres en Render caduca pasado un tiempo
+    # (revisa el aviso exacto en el dashboard al crearla - la politica de
+    # Render cambia de vez en cuando). Para datos de produccion reales sin
+    # fecha de caducidad hace falta el plan de pago (unos 6-7 USD/mes).

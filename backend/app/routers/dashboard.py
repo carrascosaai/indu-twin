@@ -8,14 +8,11 @@ from app import models, schemas
 from app.deps import forbid_tenant, get_current_user, get_db
 from app.services.efficiency import efficiency_scores, kwh_per_m2
 from app.services.prediction import predict_next_24h
+from app.services.timeseries import bucket_readings
 
 router = APIRouter(
     prefix="/api/polygons", tags=["dashboard"], dependencies=[Depends(get_current_user)]
 )
-
-# Nota: strftime es especifico de SQLite. Al migrar a Postgres, sustituir
-# por date_trunc('hour', timestamp).
-HOUR_BUCKET = func.strftime("%Y-%m-%dT%H:00:00", models.SensorReading.timestamp)
 
 
 def energy_totals_24h(db: Session, buildings: list[models.Building]) -> dict[int, float]:
@@ -52,15 +49,8 @@ def predict_energy(
         return None, []
 
     since = now - timedelta(days=days)
-    rows = db.execute(
-        select(HOUR_BUCKET.label("bucket"), func.sum(models.SensorReading.value))
-        .where(
-            models.SensorReading.sensor_id.in_(sensor_ids),
-            models.SensorReading.timestamp >= since,
-        )
-        .group_by("bucket")
-    ).all()
-    hourly_totals = [(datetime.fromisoformat(bucket).hour, total) for bucket, total in rows]
+    rows = bucket_readings(db, sensor_ids, since, granularity="hour", agg="sum")
+    hourly_totals = [(bucket.hour, total) for bucket, total in rows]
 
     total, series = predict_next_24h(hourly_totals, now)
     if total is None:
@@ -121,34 +111,16 @@ def polygon_dashboard(polygon_id: int, db: Session = Depends(get_db)):
             )
         ).scalar_one()
 
-        rows = db.execute(
-            select(HOUR_BUCKET.label("bucket"), func.sum(models.SensorReading.value))
-            .where(
-                models.SensorReading.sensor_id.in_(energy_sensor_ids),
-                models.SensorReading.timestamp >= since_24h,
-            )
-            .group_by("bucket")
-            .order_by("bucket")
-        ).all()
+        rows = bucket_readings(db, energy_sensor_ids, since_24h, granularity="hour", agg="sum")
         energy_series = [
-            schemas.SeriesPoint(timestamp=datetime.fromisoformat(b), value=round(v, 2))
-            for b, v in rows
+            schemas.SeriesPoint(timestamp=b, value=round(v, 2)) for b, v in rows
         ]
 
     temperature_series: list[schemas.SeriesPoint] = []
     if temp_sensor_ids:
-        rows = db.execute(
-            select(HOUR_BUCKET.label("bucket"), func.avg(models.SensorReading.value))
-            .where(
-                models.SensorReading.sensor_id.in_(temp_sensor_ids),
-                models.SensorReading.timestamp >= since_24h,
-            )
-            .group_by("bucket")
-            .order_by("bucket")
-        ).all()
+        rows = bucket_readings(db, temp_sensor_ids, since_24h, granularity="hour", agg="avg")
         temperature_series = [
-            schemas.SeriesPoint(timestamp=datetime.fromisoformat(b), value=round(v, 1))
-            for b, v in rows
+            schemas.SeriesPoint(timestamp=b, value=round(v, 1)) for b, v in rows
         ]
 
     building_totals = energy_totals_24h(db, buildings)

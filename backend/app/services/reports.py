@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session
 from app import models
 from app.services.efficiency import efficiency_scores, kwh_per_m2
 from app.services.maintenance import maintenance_risk_score, risk_label
+from app.services.timeseries import bucket_readings
 
 PERIOD_LABELS = {"daily": "Diario", "weekly": "Semanal", "monthly": "Mensual"}
 PERIOD_DELTAS = {
@@ -282,32 +283,15 @@ def build_report_data(db: Session, polygon: models.Polygon, period: str) -> Repo
     ]
 
     # Serie para el grafico: por hora en el informe diario (24 puntos), por
-    # dia en semanal/mensual (7 o ~30 puntos). SQLite-especifico, ver nota
-    # de HOUR_BUCKET en app/routers/dashboard.py.
-    if period == "daily":
-        bucket_expr = func.strftime("%Y-%m-%dT%H:00:00", models.SensorReading.timestamp)
-        label_fmt = "%H:00"
-    else:
-        bucket_expr = func.strftime("%Y-%m-%d", models.SensorReading.timestamp)
-        label_fmt = "%d/%m"
+    # dia en semanal/mensual (7 o ~30 puntos).
+    granularity = "hour" if period == "daily" else "day"
+    label_fmt = "%H:00" if period == "daily" else "%d/%m"
     energy_series: list[SeriesPoint] = []
     if all_energy_ids:
-        rows = db.execute(
-            select(bucket_expr.label("bucket"), func.sum(models.SensorReading.value))
-            .where(
-                models.SensorReading.sensor_id.in_(all_energy_ids),
-                models.SensorReading.timestamp >= since,
-                models.SensorReading.timestamp < until,
-            )
-            .group_by("bucket")
-            .order_by("bucket")
-        ).all()
-        for bucket, value in rows:
-            ts = (
-                datetime.fromisoformat(bucket)
-                if period == "daily"
-                else datetime.strptime(bucket, "%Y-%m-%d")
-            )
+        rows = bucket_readings(
+            db, all_energy_ids, since, granularity=granularity, agg="sum", until=until
+        )
+        for ts, value in rows:
             energy_series.append(SeriesPoint(label=ts.strftime(label_fmt), value=round(value, 2)))
 
     estimated_cost_eur = round(total_energy * ENERGY_PRICE_EUR_PER_KWH, 2)
