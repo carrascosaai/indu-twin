@@ -88,6 +88,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
         <button
           onClick={() => setMobileMenuOpen((v) => !v)}
+          aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+          aria-expanded={mobileMenuOpen}
           className="btn btn-ghost rounded-md p-1.5"
         >
           {mobileMenuOpen ? <X size={18} strokeWidth={2} /> : <Menu size={18} strokeWidth={2} />}

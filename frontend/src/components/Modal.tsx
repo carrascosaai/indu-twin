@@ -28,6 +28,7 @@ export default function Modal({ title, onClose, children }: ModalProps) {
           <h2 className="font-display text-base font-semibold text-slate-900 dark:text-slate-50">{title}</h2>
           <button
             onClick={onClose}
+            aria-label="Cerrar"
             className="btn btn-ghost rounded-md p-1"
           >
             <X size={16} strokeWidth={2} />

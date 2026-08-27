@@ -54,6 +54,21 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Foco de teclado consistente y con la marca, en vez de fiarse del
+   contorno por defecto del navegador (que varia entre Chrome/Firefox/Safari
+   y no siempre destaca sobre superficies oscuras). Solo se ve al navegar
+   con teclado (:focus-visible), no al hacer clic con el raton. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
 body {
   background-color: var(--canvas);
   color: var(--text-primary);
